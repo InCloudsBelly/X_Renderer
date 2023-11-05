@@ -1,0 +1,64 @@
+#include <../common/material.hsh>
+#include <../common/convert.hsh>
+#include <../common/normalencode.hsh>
+#include <../brdf/surface.hsh>
+
+layout(set = 1, binding = 2) uniform sampler2D baseColorTexture;
+layout(set = 1, binding = 3) uniform sampler2D normalTexture;
+layout(set = 1, binding = 4) uniform sampler2D geometryNormalTexture;
+layout(set = 1, binding = 5) uniform sampler2D roughnessMetalnessAoTexture;
+layout(set = 1, binding = 6) uniform usampler2D materialIdxTexture;
+layout(set = 1, binding = 7) uniform sampler2D depthTexture;
+layout(set = 1, binding = 8) uniform sampler2D volumetricTexture;
+layout(set = 1, binding = 9) uniform sampler2D emissionTexture;
+
+layout(set = 1, binding = 10) uniform samplerCube specularProbe;
+layout(set = 1, binding = 11) uniform samplerCube diffuseProbe;
+
+Material GetMaterial(vec2 texCoord) {
+    uint materialIdx = textureLod(materialIdxTexture, texCoord, 0).r;
+    Material material = UnpackMaterial(materialIdx);
+
+    if (material.baseColorMap || material.vertexColors) {
+        material.baseColor *= textureLod(baseColorTexture, texCoord, 0).rgb;
+    }
+    if (material.roughnessMap) {
+        material.roughness *= textureLod(roughnessMetalnessAoTexture, texCoord, 0).r;
+    }
+    if (material.metalnessMap) {
+        material.metalness *= textureLod(roughnessMetalnessAoTexture, texCoord, 0).g;
+    }
+    if (material.aoMap) {
+        material.ao *= textureLod(roughnessMetalnessAoTexture, texCoord, 0).b;
+    }
+
+    if (material.emissionMap) {
+        material.emissiveColor *= textureLod(emissionTexture, texCoord, 0).rgb;
+    }
+    return material;
+}
+
+Surface GetSurface(vec2 texCoord, float depth, vec3 L, out vec3 geometryNormal) {
+    vec3 fragPos = ConvertDepthToViewSpace(depth, texCoord);
+
+    vec3 normal = DecodeNormal(textureLod(normalTexture, texCoord, 0).rg);
+    geometryNormal = DecodeNormal(textureLod(geometryNormalTexture, texCoord, 0).rg);
+
+    Material material = GetMaterial(texCoord);
+    normal = material.normalMap ? normal : geometryNormal;
+    
+    L = normalize(L);
+    vec3 V = normalize(-fragPos);
+    vec3 N = normal;
+
+    Surface surface = CreateSurface(V, N, L, material);
+
+    surface.P = fragPos;
+    return surface;
+}
+
+
+Surface GetSurface(vec2 texCoord, float depth, vec3 L) {
+    vec3 geometryNormal;
+    return GetSurface(texCoord, depth, L, geometryNormal);
+}

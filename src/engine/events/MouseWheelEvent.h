@@ -1,0 +1,48 @@
+#ifndef X_MOUSEWHEELEVENT_H
+#define X_MOUSEWHEELEVENT_H
+
+#include "../System.h"
+#include "EventDelegate.h"
+
+namespace X {
+
+    namespace Events {
+
+        /**
+         * A class to distribute mouse wheel events.
+         */
+        class MouseWheelEvent {
+
+        public:
+            explicit MouseWheelEvent(SDL_MouseWheelEvent event) {
+
+                windowID = event.windowID;
+                x = event.x;
+                y = event.y;
+
+            }
+
+            /**
+             * The ID of the window the event occurred in
+             */
+            uint32_t windowID;
+
+            /**
+             * Horizontal scrolling, is positive when scrolling to
+             * the right and negative otherwise
+             */
+            int32_t x;
+
+            /**
+             * Vertical scrolling, is positive when scrolling to
+             * the up and negative otherwise
+             */
+            int32_t y;
+
+        };
+
+    }
+
+}
+
+#endif

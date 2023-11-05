@@ -1,0 +1,15 @@
+struct MeshInformation {
+    vec4 aabbMin;
+    vec4 aabbMax;
+};
+
+struct MeshSubdataInformation {
+    uint meshIdx;
+    uint indicesOffset;
+    uint indicesCount;
+    uint padding;
+};
+
+struct Instance {
+    vec4 position;
+};

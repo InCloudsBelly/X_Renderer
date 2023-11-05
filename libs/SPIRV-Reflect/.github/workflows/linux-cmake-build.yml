@@ -1,0 +1,54 @@
+name: Linux build
+
+on:
+  pull_request:
+
+# Cancel previous runs if a more recent commit is pushed.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref }}
+  cancel-in-progress: true
+
+permissions: read-all
+
+jobs:
+  linux-build:
+    name: Build and run tests on Linux using CMake
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: '0'
+      - name: Clone submodules
+        run: git submodule update --init --recursive
+      - name: Build
+        run: |
+          mkdir build
+          cd build
+          cmake .. -DSPIRV_REFLECT_BUILD_TESTS=ON
+          make -j $(nproc)
+      - name: Run unit tests
+        run: |
+          cd build
+          ./test-spirv-reflect
+      - name: Clone SPIRV-Database
+        run: |
+          git clone https://github.com/LunarG/SPIRV-Database.git build/SPIRV-Database
+      - name: Test - SaschaWillemsVulkan
+        run: |
+          for spv in $(find build/SPIRV-Database/vulkan/SaschaWillemsVulkan/ -type f); do bin/spirv-reflect $spv -ci; done
+      - name: Test - clspv
+        run: |
+          for spv in $(find build/SPIRV-Database/vulkan/clspv/ -type f); do bin/spirv-reflect $spv -ci; done
+      - name: Test - dawn
+        run: |
+          for spv in $(find build/SPIRV-Database/vulkan/dawn/ -type f); do bin/spirv-reflect $spv -ci; done
+      - name: Test - gl_cts
+        run: |
+          for spv in $(find build/SPIRV-Database/vulkan/gl_cts/ -type f); do bin/spirv-reflect $spv -ci; done
+      - name: Test - naga
+        run: |
+          for spv in $(find build/SPIRV-Database/vulkan/naga/remaps/ -type f); do bin/spirv-reflect $spv -ci; done
+      - name: Test - tint
+        run: |
+          for spv in $(find build/SPIRV-Database/vulkan/tint/ -type f); do bin/spirv-reflect $spv -ci; done

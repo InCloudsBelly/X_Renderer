@@ -1,0 +1,48 @@
+#ifndef X_TEXTINPUTEVENT_H
+#define X_TEXTINPUTEVENT_H
+
+
+#include "../System.h"
+#include "EventDelegate.h"
+#include "Keycodes.h"
+
+namespace X {
+
+    namespace Events {
+
+        /**
+         * A class to distribute text input events.
+         */
+        class TextInputEvent {
+
+        public:
+            explicit TextInputEvent(SDL_TextInputEvent event) {
+
+                windowID = event.windowID;
+
+                char *text = event.text;
+
+                while (*text != '\0') {
+                    character.push_back(*text);
+                    text++;
+                }
+
+            }
+
+            /**
+             * The ID of the window the event occurred in.
+             */
+            uint32_t windowID;
+
+            /**
+             * The character that was typed in UTF-8.
+             */
+            std::string character;
+
+        };
+
+    }
+
+}
+
+#endif

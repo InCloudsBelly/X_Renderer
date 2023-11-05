@@ -1,0 +1,51 @@
+#include <../globals.hsh>
+
+vec3 ConvertDepthToViewSpace(float depth, vec2 texcoords) {
+    
+    vec4 viewSpace = globalData.ipMatrix * vec4(texcoords * 2.0 - 1.0, depth, 1.0);
+    return viewSpace.xyz / viewSpace.w;
+    
+}
+
+float ConvertDepthToViewSpaceDepth(float depth) {
+    
+    vec2 viewSpace = (globalData.ipMatrix * vec4(0.0, 0.0, depth, 1.0)).zw;
+    return viewSpace.x / viewSpace.y;
+    
+}
+
+vec3 ConvertDepthToViewSpace(float depth, vec2 texcoords, mat4 ipMatrix) {
+    
+    vec4 viewSpace = ipMatrix * vec4(texcoords * 2.0 - 1.0, depth, 1.0);
+    return viewSpace.xyz / viewSpace.w;
+    
+}
+
+float ConvertDepthToViewSpaceDepth(float depth, mat4 ipMatrix) {
+    
+    vec2 viewSpace = (ipMatrix * vec4(0.0, 0.0, depth, 1.0)).zw;
+    return viewSpace.x / viewSpace.y;
+    
+}
+
+float ConvertViewSpaceDepthToDepth(float linearLength, float n, float f) {
+    
+  	float fsubn = f - n; 
+    
+    return  (f + n)/fsubn - 2*f * n /(linearLength * fsubn);
+    
+}
+
+float ConvertViewZToDepth(float ViewZ) {
+    
+    vec2 ndcSpace = (globalData.pMatrix * vec4(0 ,0, ViewZ, 1.0)).zw;
+    
+    return ndcSpace.x / ndcSpace.y;
+    
+}
+
+vec2 ConvertViewPosToUV(vec3 viewPos)
+{
+    vec4 ndcPos = (globalData.pMatrix * vec4(viewPos, 1.0));
+    return (ndcPos.xy / ndcPos.w) * 0.5 + 0.5;
+}

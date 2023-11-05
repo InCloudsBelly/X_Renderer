@@ -1,0 +1,34 @@
+#ifndef X_RANDOM_H
+#define X_RANDOM_H
+
+#include <random>
+
+namespace X {
+
+    namespace Common {
+
+        class Random {
+
+        public:
+            static void Init();
+
+            static float SampleUniformFloat();
+
+            static float SampleFastUniformFloat();
+
+            static float SampleFastUniformFloat(float min, float max);
+
+            static uint32_t SampleUniformInt(uint32_t min, uint32_t max);
+
+        private:
+            static std::random_device randDevice;
+            static std::mt19937 generator;
+            static std::uniform_real_distribution<float> canonicalUniformDistr;
+
+        };
+
+    }
+
+}
+
+#endif

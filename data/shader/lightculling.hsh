@@ -1,0 +1,41 @@
+#include <common/convert.hsh>
+
+struct PointLightInfo {
+	vec4 location;
+	vec4 color;
+	float intensity;
+	float radius;
+	float minRadius;
+	float padding1;
+};
+
+layout(std140, set = 2, binding = 27) uniform PointLightUniformBuffer{
+	uint pointLightCount;
+	PointLightInfo pointLights[16];
+
+}pointLightUniforms;
+
+
+layout(std140, set = 3, binding = 16) uniform LightCullingUniformBuffer{
+	float cameraFar;
+	float cameraNear;
+	vec3 clusterNum;
+} UniformCulling;
+
+layout(std430, set = 3, binding = 17) buffer VisiblePointLightIndicesBuffer {
+	int Indices[];
+} s_VisiblePointLightIndicesBuffer;
+
+// (localSize / 2 + 2)^2
+#define MAX_LIGHT_COUNT 1024
+
+
+int GetPointLightBufferOffset(vec3 viewPos)
+{
+	vec2 texCoord = ConvertViewPosToUV(viewPos);
+
+	ivec3 clustreId = ivec3(ivec2(texCoord * UniformCulling.clusterNum.xy), int(log(-viewPos.z / UniformCulling.cameraNear) / log(UniformCulling.cameraFar / UniformCulling.cameraNear) * UniformCulling.clusterNum.z));
+	int clusterIndex = int(clustreId.z * UniformCulling.clusterNum.y * UniformCulling.clusterNum.x + clustreId.y * UniformCulling.clusterNum.x + clustreId.x);
+	return clusterIndex * 4;
+
+}

@@ -1,0 +1,59 @@
+#include <../common/material.hsh>
+#include <../common/utility.hsh>
+
+struct Surface {
+    vec3 P;
+
+    vec3 V;
+    vec3 N;
+    vec3 L;
+    vec3 H;
+
+    vec3 geometryNormal;
+
+    float NdotL;
+    float LdotH;
+    float NdotH;
+    float NdotV;
+
+    vec3 F0;
+    float F90;
+
+    Material material;
+};
+
+void UpdateSurface(inout Surface surface) {
+
+    surface.L = normalize(surface.L);
+    surface.V = normalize(surface.V);
+    surface.N = normalize(surface.N);
+
+    surface.H = normalize(surface.L + surface.V);
+
+    surface.NdotL = saturate(dot(surface.N, surface.L));
+    surface.LdotH = saturate(dot(surface.L, surface.H));
+    surface.NdotH = saturate(dot(surface.N, surface.H));
+    surface.NdotV = saturate(dot(surface.N, surface.V));
+
+    //surface.F0 = mix(vec3(0.16 * sqr(surface.material.reflectance)),
+        //surface.material.baseColor, surface.material.metalness);
+    surface.F0 = mix(vec3(0.04),
+        surface.material.baseColor, surface.material.metalness);
+    surface.F90 = saturate(50.0 * dot(surface.F0, vec3(0.333)));
+}
+
+Surface CreateSurface(vec3 V, vec3 N, vec3 L, Material material) {
+
+    Surface surface;
+
+    surface.V = V;
+    surface.N = N;
+    surface.L = L;
+
+    surface.material = material;
+
+    UpdateSurface(surface);
+
+    return surface;
+
+}

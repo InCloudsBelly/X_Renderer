@@ -1,0 +1,184 @@
+// About alignement in GLSL: 
+// A structure has to be a mupltiple of the size of
+// it's largest member, e.g. for a bunch of floats it's one byte
+// Every vec3 gets rounded up to 16 bytes, which means the structure
+// has to be a size of multiple of 16 bytes.
+
+#define INVALID_RAY_ID -1
+
+struct PackedRay {
+    vec4 origin;
+    vec4 direction;
+    vec4 hit;
+};
+
+struct PackedRayPayload {
+    vec4 data;
+};
+
+struct Ray {
+    int ID;
+    
+    vec3 origin;
+    vec3 direction;
+    vec3 inverseDirection;
+
+    int hitID;
+    float hitDistance;
+    int hitInstanceID;
+
+    int currentInstanceID;
+
+};
+
+struct RayPayload {
+    vec3 radiance;
+    vec3 throughput;
+};
+
+struct AABB {
+    
+    vec3 min;
+    vec3 max;
+    
+};
+
+struct PackedTriangle {
+    
+    vec4 v0;
+    vec4 v1;
+    vec4 v2;
+    vec4 d0;
+    vec4 d1;
+    vec4 d2;
+    
+};
+
+struct Triangle {
+    
+    vec3 v0;
+    vec3 v1;
+    vec3 v2;
+    
+    vec3 n0;
+    vec3 n1;
+    vec3 n2;
+    
+    vec3 t;
+    vec3 bt;
+    
+    vec2 uv0;
+    vec2 uv1;
+    vec2 uv2;
+
+    vec4 color0;
+    vec4 color1;
+    vec4 color2;
+    
+    int materialIndex;
+    bool endOfNode;
+    
+};
+
+struct TextureLevel  {
+    int layer;
+    
+    int x;
+    int y;
+    
+    int width;
+    int height;
+
+    int valid;
+};
+
+struct Texture {
+    TextureLevel level0;
+    TextureLevel level1;
+    TextureLevel level2;
+    TextureLevel level3;
+    TextureLevel level4;
+    
+    int valid;
+};
+
+struct RaytraceMaterial {
+    
+    float baseR;
+    float baseG;
+    float baseB;
+    
+    float emissR;
+    float emissG;
+    float emissB;
+    
+    float opacity;
+    
+    float roughness;
+    float metalness;
+    float ao;
+
+    float reflectance;
+    
+    float normalScale;
+    
+    int invertUVs;
+    int twoSided;
+    
+    Texture baseColorTexture;
+    Texture opacityTexture;
+    Texture normalTexture;
+    Texture roughnessTexture;
+    Texture metalnessTexture;
+    Texture aoTexture;
+    Texture emissionTexture;
+
+
+};
+
+struct PackedLight {
+    vec4 P;
+    vec4 N;
+    vec4 color;
+    vec4 data;
+};
+
+struct Light {
+    vec3 P;
+    vec3 N;
+
+    vec3 radiance;
+
+    uint type;
+    int triangleIdx;
+    int instanceIdx;
+
+    float pdf;
+    float area;
+    float brightness;
+};
+
+struct LightSample {
+    vec3 P;
+    vec3 N;
+
+    float pdf;
+};
+
+struct Instance {
+    mat3x4 inverseMatrix;
+
+    int blasOffset;
+    int triangleOffset;
+    
+    int padding0;
+    int padding1;
+};
+
+layout(push_constant) uniform constants {
+    int lightCount;
+    uint rayBufferOffset;
+    uint rayPayloadBufferOffset;
+    uint rayBufferSize;
+    int useRayBinning;
+} PushConstants;

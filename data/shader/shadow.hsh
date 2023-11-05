@@ -1,0 +1,495 @@
+#ifdef X_TEXTURE_SHADOW_LOD
+#extension GL_EXT_texture_shadow_lod : require
+#endif
+
+layout(set = 2, binding = 28) uniform samplerCubeArray pointLightsShadowArray;
+
+
+// Shadow cascades
+struct Cascade {
+    
+    float distance;
+    float texelSize;
+
+    float aligment0;
+    float aligment1;
+
+    mat4 cascadeSpace;
+
+};
+
+//Shadow struct has to be implemented like this
+struct Shadow {
+    
+    float distance;
+    float bias;
+    
+    float cascadeBlendDistance;
+    
+    int cascadeCount;
+
+    float aligment0;
+    float aligment1;
+
+    vec2 resolution;
+
+    Cascade cascades[6];
+
+};
+
+const vec2 PoissonDistribution[64] = vec2[](
+	vec2(-0.94201624, -0.39906216),
+	vec2(0.94558609, -0.76890725),
+	vec2(-0.094184101, -0.92938870),
+	vec2(0.34495938, 0.29387760),
+	vec2(-0.91588581, 0.45771432),
+	vec2(-0.81544232, -0.87912464),
+	vec2(-0.38277543, 0.27676845),
+	vec2(0.97484398, 0.75648379),
+	vec2(0.44323325, -0.97511554),
+	vec2(0.53742981, -0.47373420),
+	vec2(-0.26496911, -0.41893023),
+	vec2(0.79197514, 0.19090188),
+	vec2(-0.24188840, 0.99706507),
+	vec2(-0.81409955, 0.91437590),
+	vec2(0.19984126, 0.78641367),
+	vec2(0.14383161, -0.14100790),
+	vec2(-0.413923, -0.439757),
+	vec2(-0.979153, -0.201245),
+	vec2(-0.865579, -0.288695),
+	vec2(-0.243704, -0.186378),
+	vec2(-0.294920, -0.055748),
+	vec2(-0.604452, -0.544251),
+	vec2(-0.418056, -0.587679),
+	vec2(-0.549156, -0.415877),
+	vec2(-0.238080, -0.611761),
+	vec2(-0.267004, -0.459702),
+	vec2(-0.100006, -0.229116),
+	vec2(-0.101928, -0.380382),
+	vec2(-0.681467, -0.700773),
+	vec2(-0.763488, -0.543386),
+	vec2(-0.549030, -0.750749),
+	vec2(-0.809045, -0.408738),
+	vec2(-0.388134, -0.773448),
+	vec2(-0.429392, -0.894892),
+	vec2(-0.131597, 0.065058),
+	vec2(-0.275002, 0.102922),
+	vec2(-0.106117, -0.068327),
+	vec2(-0.294586, -0.891515),
+	vec2(-0.629418, 0.379387),
+	vec2(-0.407257, 0.339748),
+	vec2(0.071650, -0.384284),
+	vec2(0.022018, -0.263793),
+	vec2(0.003879, -0.136073),
+	vec2(-0.137533, -0.767844),
+	vec2(-0.050874, -0.906068),
+	vec2(0.114133, -0.070053),
+	vec2(0.163314, -0.217231),
+	vec2(-0.100262, -0.587992),
+	vec2(-0.004942, 0.125368),
+	vec2(0.035302, -0.619310),
+	vec2(0.195646, -0.459022),
+	vec2(0.303969, -0.346362),
+	vec2(-0.678118, 0.685099),
+	vec2(-0.628418, 0.507978),
+	vec2(-0.508473, 0.458753),
+	vec2(0.032134, -0.782030),
+	vec2(0.122595, 0.280353),
+	vec2(-0.043643, 0.312119),
+	vec2(0.132993, 0.085170),
+	vec2(-0.192106, 0.285848),
+	vec2(0.183621, -0.713242),
+	vec2(0.265220, -0.596716),
+	vec2(-0.009628, -0.483058),
+	vec2(-0.018516, 0.435703)
+	);
+
+const vec2 poissonDisk[16] = vec2[](
+	vec2(-0.94201624, -0.39906216),
+	vec2(0.94558609, -0.76890725),
+	vec2(-0.094184101, -0.92938870),
+	vec2(0.34495938, 0.29387760),
+	vec2(-0.91588581, 0.45771432),
+	vec2(-0.81544232, -0.87912464),
+	vec2(-0.38277543, 0.27676845),
+	vec2(0.97484398, 0.75648379),
+	vec2(0.44323325, -0.97511554),
+	vec2(0.53742981, -0.47373420),
+	vec2(-0.26496911, -0.41893023),
+	vec2(0.79197514, 0.19090188),
+	vec2(-0.24188840, 0.99706507),
+	vec2(-0.81409955, 0.91437590),
+	vec2(0.19984126, 0.78641367),
+	vec2(0.14383161, -0.14100790)
+	);
+
+vec2 SamplePoisson(int index)
+{
+	return PoissonDistribution[index % 64];
+}
+
+
+
+
+// Filtering based on http://the-witness.net/news/2013/09/shadow-mapping-summary-part-1/
+
+float offsetLookup(sampler2DArrayShadow cascadeMaps, vec2 flooredUV, float u, float v, float cascadeIndex,
+    vec2 texelSize, float depth, float bias) {
+
+    vec2 uv = 0.5 * (flooredUV + vec2(u, v) * texelSize) + 0.5;
+
+#ifdef X_TEXTURE_SHADOW_LOD
+    // This fixes issues that can occur at cascade borders
+    return textureLod(cascadeMaps, 
+        vec4(uv, cascadeIndex, depth - bias), 0);
+#else
+    return texture(cascadeMaps, 
+        vec4(uv, cascadeIndex, depth - bias));
+#endif
+
+}
+
+float cascadeLookup(Shadow shadow, sampler2DArrayShadow cascadeMaps, float cascadeIndex, mat4 cascadeTransform, vec3 fragmentPosition, float bias, bool fade) {
+
+    vec4 shadowCoords = cascadeTransform * vec4(fragmentPosition, 1.0);
+    shadowCoords.xyz /= shadowCoords.w;
+    
+    float fadeout = fade ? clamp((-fragmentPosition.z + 2.0 - shadow.distance) * 0.5, 0.0, 1.0) : 0.0;
+    
+    //shadowCoords.z = shadowCoords.z * 0.5 + 0.5;
+    
+    if (abs(fadeout - 1.0) < 1e-6)
+        return 1.0;
+
+    vec2 res = shadow.resolution;
+    vec2 resInv = 1.0 / res;
+
+    vec2 uv = shadowCoords.xy * res;
+
+    vec2 flooredUV = vec2(floor(uv.x), floor(uv.y));
+
+    float s = fract(uv.x);
+    float t = fract(uv.y);
+
+    flooredUV *= resInv;
+    
+    float visibility = 0.0;
+
+#ifdef SHADOW_FILTER_1x1
+    visibility += offsetLookup(cascadeMaps, shadowCoords.xy, 0.0, 0.0, float(cascadeIndex), resInv, shadowCoords.z, bias);
+#endif
+#ifdef SHADOW_FILTER_3x3
+    float uw0 = (3.0 - 2.0 * s);
+    float uw1 = (1.0 + 2.0 * s);
+
+    float u0 = (2.0 - s) / uw0 - 1.0;
+    float u1 = s / uw1 + 1.0;
+
+    float vw0 = (3.0 - 2.0 * t);
+    float vw1 = (1.0 + 2.0 * t);
+
+    float v0 = (2.0 - t) / vw0 - 1.0;
+    float v1 = t / vw1 + 1.0;
+
+    visibility += uw0 * vw0 * offsetLookup(cascadeMaps, flooredUV, u0, v0, float(cascadeIndex), resInv, shadowCoords.z, bias);
+    visibility += uw1 * vw0 * offsetLookup(cascadeMaps, flooredUV, u1, v0, float(cascadeIndex), resInv, shadowCoords.z, bias);
+    visibility += uw0 * vw1 * offsetLookup(cascadeMaps, flooredUV, u0, v1, float(cascadeIndex), resInv, shadowCoords.z, bias);
+    visibility += uw1 * vw1 * offsetLookup(cascadeMaps, flooredUV, u1, v1, float(cascadeIndex), resInv, shadowCoords.z, bias);
+
+    visibility /= 16.0;
+#endif
+#ifdef SHADOW_FILTER_5x5
+    float uw0 = (4.0 - 3.0 * s);
+    float uw1 = 7.0;
+    float uw2 = (1.0 + 3.0 * s);
+
+    float u0 = (3.0 - 2.0 * s) / uw0 - 2.0;
+    float u1 = (3.0 + s) / uw1;
+    float u2 = s / uw2 + 2.0;
+
+    float vw0 = (4.0 - 3.0 * t);
+    float vw1 = 7.0;
+    float vw2 = (1.0 + 3.0 * t);
+
+    float v0 = (3.0 - 2.0 * t) / vw0 - 2.0;
+    float v1 = (3.0 + t) / vw1;
+    float v2 = t / vw2 + 2.0;
+
+    visibility += uw0 * vw0 * offsetLookup(cascadeMaps, flooredUV, u0, v0, float(cascadeIndex), resInv, shadowCoords.z, bias);
+    visibility += uw1 * vw0 * offsetLookup(cascadeMaps, flooredUV, u1, v0, float(cascadeIndex), resInv, shadowCoords.z, bias);
+    visibility += uw2 * vw0 * offsetLookup(cascadeMaps, flooredUV, u2, v0, float(cascadeIndex), resInv, shadowCoords.z, bias);
+
+    visibility += uw0 * vw1 * offsetLookup(cascadeMaps, flooredUV, u0, v1, float(cascadeIndex), resInv, shadowCoords.z, bias);
+    visibility += uw1 * vw1 * offsetLookup(cascadeMaps, flooredUV, u1, v1, float(cascadeIndex), resInv, shadowCoords.z, bias);
+    visibility += uw2 * vw1 * offsetLookup(cascadeMaps, flooredUV, u2, v1, float(cascadeIndex), resInv, shadowCoords.z, bias);
+
+    visibility += uw0 * vw2 * offsetLookup(cascadeMaps, flooredUV, u0, v2, float(cascadeIndex), resInv, shadowCoords.z, bias);
+    visibility += uw1 * vw2 * offsetLookup(cascadeMaps, flooredUV, u1, v2, float(cascadeIndex), resInv, shadowCoords.z, bias);
+    visibility += uw2 * vw2 * offsetLookup(cascadeMaps, flooredUV, u2, v2, float(cascadeIndex), resInv, shadowCoords.z, bias);
+
+    visibility /= 144.0;
+#endif
+#ifdef SHADOW_FILTER_7x7
+    float uw0 = (5.0 * s - 6.0);
+    float uw1 = (11.0 * s - 28.0);
+    float uw2 = -(11.0 * s + 17.0);
+    float uw3 = -(5.0 * s + 1.0);
+
+    float u0 = (4.0 * s - 5.0) / uw0 - 3.0;
+    float u1 = (4.0 * s - 16.0) / uw1 - 1.0;
+    float u2 = -(7.0 * s + 5.0) / uw2 + 1.0;
+    float u3 = -s / uw3 + 3.0;
+
+    float vw0 = (5.0 * t - 6.0);
+    float vw1 = (11.0 * t - 28.0);
+    float vw2 = -(11.0 * t + 17.0);
+    float vw3 = -(5.0 * t + 1.0);
+
+    float v0 = (4.0 * t - 5.0) / vw0 - 3.0;
+    float v1 = (4.0 * t - 16.0) / vw1 - 1.0;
+    float v2 = -(7.0 * t + 5.0) / vw2 + 1.0;
+    float v3 = -t / vw3 + 3.0;
+
+    visibility += uw0 * vw0 * offsetLookup(cascadeMaps, flooredUV, u0, v0, float(cascadeIndex), resInv, shadowCoords.z, bias);
+    visibility += uw1 * vw0 * offsetLookup(cascadeMaps, flooredUV, u1, v0, float(cascadeIndex), resInv, shadowCoords.z, bias);
+    visibility += uw2 * vw0 * offsetLookup(cascadeMaps, flooredUV, u2, v0, float(cascadeIndex), resInv, shadowCoords.z, bias);
+    visibility += uw3 * vw0 * offsetLookup(cascadeMaps, flooredUV, u3, v0, float(cascadeIndex), resInv, shadowCoords.z, bias);
+
+    visibility += uw0 * vw1 * offsetLookup(cascadeMaps, flooredUV, u0, v1, float(cascadeIndex), resInv, shadowCoords.z, bias);
+    visibility += uw1 * vw1 * offsetLookup(cascadeMaps, flooredUV, u1, v1, float(cascadeIndex), resInv, shadowCoords.z, bias);
+    visibility += uw2 * vw1 * offsetLookup(cascadeMaps, flooredUV, u2, v1, float(cascadeIndex), resInv, shadowCoords.z, bias);
+    visibility += uw3 * vw1 * offsetLookup(cascadeMaps, flooredUV, u3, v1, float(cascadeIndex), resInv, shadowCoords.z, bias);
+
+    visibility += uw0 * vw2 * offsetLookup(cascadeMaps, flooredUV, u0, v2, float(cascadeIndex), resInv, shadowCoords.z, bias);
+    visibility += uw1 * vw2 * offsetLookup(cascadeMaps, flooredUV, u1, v2, float(cascadeIndex), resInv, shadowCoords.z, bias);
+    visibility += uw2 * vw2 * offsetLookup(cascadeMaps, flooredUV, u2, v2, float(cascadeIndex), resInv, shadowCoords.z, bias);
+    visibility += uw3 * vw2 * offsetLookup(cascadeMaps, flooredUV, u3, v2, float(cascadeIndex), resInv, shadowCoords.z, bias);
+
+    visibility += uw0 * vw3 * offsetLookup(cascadeMaps, flooredUV, u0, v3, float(cascadeIndex), resInv, shadowCoords.z, bias);
+    visibility += uw1 * vw3 * offsetLookup(cascadeMaps, flooredUV, u1, v3, float(cascadeIndex), resInv, shadowCoords.z, bias);
+    visibility += uw2 * vw3 * offsetLookup(cascadeMaps, flooredUV, u2, v3, float(cascadeIndex), resInv, shadowCoords.z, bias);
+    visibility += uw3 * vw3 * offsetLookup(cascadeMaps, flooredUV, u3, v3, float(cascadeIndex), resInv, shadowCoords.z, bias);
+
+    visibility /= 2704.0;
+#endif
+
+    // Fade out shadow in the distance
+    return clamp(visibility + fadeout, 0.0, 1.0);
+
+}
+
+float CalculateCascadedShadow(Shadow shadow, sampler2DArrayShadow cascadeMaps, vec3 fragmentPosition, vec3 normal, float cosTheta) {
+    
+    // Note: The code below is actually the fastest code on every platform tested
+    // Some platforms have problems directly indexing the cascade array.
+    // We allow 6 cascades
+#ifdef SHADOW_CASCADE_BLENDING
+    float distance = -fragmentPosition.z - shadow.cascadeBlendDistance;
+#else
+    float distance = -fragmentPosition.z;
+#endif
+    int cascadeIndex = 0;
+    cascadeIndex = distance >= shadow.cascades[0].distance ? 1 : cascadeIndex;
+    cascadeIndex = distance >= shadow.cascades[1].distance ? 2 : cascadeIndex;
+    cascadeIndex = distance >= shadow.cascades[2].distance ? 3 : cascadeIndex;
+    cascadeIndex = distance >= shadow.cascades[3].distance ? 4 : cascadeIndex;
+    cascadeIndex = distance >= shadow.cascades[4].distance ? 5 : cascadeIndex;
+    cascadeIndex = min(shadow.cascadeCount - 1, cascadeIndex);
+
+    mat4 cascadeMatrix = shadow.cascades[0].cascadeSpace;
+    cascadeMatrix = cascadeIndex > 0 ? shadow.cascades[1].cascadeSpace : cascadeMatrix;
+    cascadeMatrix = cascadeIndex > 1 ? shadow.cascades[2].cascadeSpace : cascadeMatrix;
+    cascadeMatrix = cascadeIndex > 2 ? shadow.cascades[3].cascadeSpace : cascadeMatrix;
+    cascadeMatrix = cascadeIndex > 3 ? shadow.cascades[4].cascadeSpace : cascadeMatrix;
+    cascadeMatrix = cascadeIndex > 4 ? shadow.cascades[5].cascadeSpace : cascadeMatrix;
+
+    float texelSize = shadow.cascades[0].texelSize;
+    texelSize = cascadeIndex > 0 ? shadow.cascades[1].texelSize : texelSize;
+    texelSize = cascadeIndex > 1 ? shadow.cascades[2].texelSize : texelSize;
+    texelSize = cascadeIndex > 2 ? shadow.cascades[3].texelSize : texelSize;
+    texelSize = cascadeIndex > 3 ? shadow.cascades[4].texelSize : texelSize;
+    texelSize = cascadeIndex > 4 ? shadow.cascades[5].texelSize : texelSize;
+    
+    //vec3 bias = shadow.bias * texelSize * normal / max(cosTheta, 0.5);
+    //fragmentPosition += bias;
+
+    float bias = max(0.002 * (1.0 - cosTheta), 0.002);
+    float visibility = cascadeLookup(shadow, cascadeMaps, float(cascadeIndex),
+        cascadeMatrix, fragmentPosition, bias, true);
+
+#ifdef SHADOW_CASCADE_BLENDING
+    if (cascadeIndex < shadow.cascadeCount - 1) {
+    
+        float cascadeDistance = shadow.cascades[0].distance;
+        cascadeDistance = cascadeIndex > 0 ? shadow.cascades[1].distance : cascadeDistance;
+        cascadeDistance = cascadeIndex > 1 ? shadow.cascades[2].distance : cascadeDistance;
+        cascadeDistance = cascadeIndex > 2 ? shadow.cascades[3].distance : cascadeDistance;
+        cascadeDistance = cascadeIndex > 3 ? shadow.cascades[4].distance : cascadeDistance;
+    
+        float blend = (cascadeDistance - distance) 
+            / shadow.cascadeBlendDistance;
+        blend = clamp(blend, 0.0, 1.0);
+
+        if (blend <= 1.0) {
+        
+            cascadeIndex += 1;
+            //fragmentPosition -= bias;
+            
+            mat4 cascadeMatrix = shadow.cascades[0].cascadeSpace;
+            cascadeMatrix = cascadeIndex > 0 ? shadow.cascades[1].cascadeSpace : cascadeMatrix;
+            cascadeMatrix = cascadeIndex > 1 ? shadow.cascades[2].cascadeSpace : cascadeMatrix;
+            cascadeMatrix = cascadeIndex > 2 ? shadow.cascades[3].cascadeSpace : cascadeMatrix;
+            cascadeMatrix = cascadeIndex > 3 ? shadow.cascades[4].cascadeSpace : cascadeMatrix;
+            cascadeMatrix = cascadeIndex > 4 ? shadow.cascades[5].cascadeSpace : cascadeMatrix;
+
+            float texelSize = shadow.cascades[0].texelSize;
+            texelSize = cascadeIndex > 0 ? shadow.cascades[1].texelSize : texelSize;
+            texelSize = cascadeIndex > 1 ? shadow.cascades[2].texelSize : texelSize;
+            texelSize = cascadeIndex > 2 ? shadow.cascades[3].texelSize : texelSize;
+            texelSize = cascadeIndex > 3 ? shadow.cascades[4].texelSize : texelSize;
+            texelSize = cascadeIndex > 4 ? shadow.cascades[5].texelSize : texelSize;
+
+            //bias = shadow.bias * texelSize * normal / max(cosTheta, 0.5);            
+            //fragmentPosition += bias;
+            
+            visibility = mix(cascadeLookup(shadow, cascadeMaps, float(cascadeIndex),
+                cascadeMatrix, fragmentPosition, bias, true), visibility, blend);    
+        }
+    }
+#endif
+
+    return visibility;
+}
+
+float CalculateShadowWorldSpace(Shadow shadow, sampler2DArrayShadow cascadeMaps, vec3 position, vec3 normal, float cosTheta) {
+    mat4 cascadeMatrix = shadow.cascades[0].cascadeSpace;
+    float texelSize = shadow.cascades[0].texelSize;
+
+    vec3 bias = shadow.bias * texelSize * normal / max(cosTheta, 0.5);
+    position += bias;
+
+    return cascadeLookup(shadow, cascadeMaps, 0.0,
+        cascadeMatrix, position, 0.0, false);
+}
+
+
+
+float PCSS_DirectionalLight(Shadow shadow, sampler2DArray cascadeMaps, vec3 fragmentPosition, vec3 normal, float cosTheta)
+{
+
+    #ifdef SHADOW_CASCADE_BLENDING
+        float distance = -fragmentPosition.z - shadow.cascadeBlendDistance;
+    #else
+        float distance = -fragmentPosition.z;
+    #endif
+    int cascadeIndex = 0;
+    cascadeIndex = distance >= shadow.cascades[0].distance ? 1 : cascadeIndex;
+    cascadeIndex = distance >= shadow.cascades[1].distance ? 2 : cascadeIndex;
+    cascadeIndex = distance >= shadow.cascades[2].distance ? 3 : cascadeIndex;
+    cascadeIndex = distance >= shadow.cascades[3].distance ? 4 : cascadeIndex;
+    cascadeIndex = distance >= shadow.cascades[4].distance ? 5 : cascadeIndex;
+    cascadeIndex = min(shadow.cascadeCount - 1, cascadeIndex);
+
+    mat4 cascadeMatrix = shadow.cascades[0].cascadeSpace;
+    cascadeMatrix = cascadeIndex > 0 ? shadow.cascades[1].cascadeSpace : cascadeMatrix;
+    cascadeMatrix = cascadeIndex > 1 ? shadow.cascades[2].cascadeSpace : cascadeMatrix;
+    cascadeMatrix = cascadeIndex > 2 ? shadow.cascades[3].cascadeSpace : cascadeMatrix;
+    cascadeMatrix = cascadeIndex > 3 ? shadow.cascades[4].cascadeSpace : cascadeMatrix;
+    cascadeMatrix = cascadeIndex > 4 ? shadow.cascades[5].cascadeSpace : cascadeMatrix;
+
+    float texelSize = shadow.cascades[0].texelSize;
+    texelSize = cascadeIndex > 0 ? shadow.cascades[1].texelSize : texelSize;
+    texelSize = cascadeIndex > 1 ? shadow.cascades[2].texelSize : texelSize;
+    texelSize = cascadeIndex > 2 ? shadow.cascades[3].texelSize : texelSize;
+    texelSize = cascadeIndex > 3 ? shadow.cascades[4].texelSize : texelSize;
+    texelSize = cascadeIndex > 4 ? shadow.cascades[5].texelSize : texelSize;
+
+
+    float bias = max(0.002 * (1.0 - cosTheta), 0.002);
+
+    vec4 shadowCoords = cascadeMatrix * vec4(fragmentPosition, 1.0);
+    shadowCoords.xyz /= shadowCoords.w;
+    
+    //shadowCoords.z = shadowCoords.z * 0.5 + 0.5;
+    
+    float uvLightSize = 0.2 * shadowCoords.z;
+
+    int numBlockerSearchSamples = 64;
+	int blockers = 0;
+	float avgBlockerDistance = 0;
+
+	for (int i = 0; i < numBlockerSearchSamples; i++)
+	{
+		float z = texture(cascadeMaps, vec3((shadowCoords.xy * 0.5 + 0.5) + SamplePoisson(i) * uvLightSize, cascadeIndex)).r;
+		if (z < (shadowCoords.z - bias))
+		{
+			blockers++;
+			avgBlockerDistance += z;
+		}
+	}
+
+    float blockerDistance ;
+	if (blockers > 0)
+		blockerDistance =  avgBlockerDistance / float(blockers);
+    else
+        return 1.0f;
+
+    float penumbraWidth = (shadowCoords.z - blockerDistance) / blockerDistance;
+
+	float NEAR = 0.01; // Should this value be tweakable?
+	float uvRadius = penumbraWidth * uvLightSize * NEAR / shadowCoords.z; // Do we need to divide by shadowCoords.z?
+	uvRadius = min(uvRadius, 0.002f);
+
+
+    int numPCFSamples = 64;
+
+	float sum = 0;
+	for (int i = 0; i < numPCFSamples; i++)
+	{
+		vec2 offset = SamplePoisson(i) * uvRadius;
+		float z = texture(cascadeMaps, vec3((shadowCoords.xy * 0.5 + 0.5) + offset, cascadeIndex)).r;
+		sum += step(shadowCoords.z - bias, z);
+	}
+	return sum / numPCFSamples;
+
+} 
+
+
+const float POINT_SHADOW_BIAS = 0.001f; // unlinear Distance bias
+
+float getPostiveLinearDepth(float depth, float n, float f)
+{
+	float fsubn = f - n; 
+	return -(2 * f * n)/fsubn / (depth - (f+ n) / fsubn); 
+}
+
+float getUnLinearDepth(float linearLength, float n, float f)
+{
+	float fsubn = f - n; 
+    
+    return  (f + n)/fsubn - 2*f * n /(linearLength * fsubn);
+
+}
+
+
+
+float PCF_PointLight(samplerCubeArray PointShadowArray, vec3 lightWorldPos, float minRadius, float radius, vec3 worldPos, uint shadowLayerIndex)
+{
+	float shadow = 1.0;
+
+	vec3 sampleDir = worldPos - lightWorldPos.xyz;
+	float distance = length(sampleDir);
+	float cloestDepth = texture(PointShadowArray, vec4(sampleDir, shadowLayerIndex)).r;
+	
+
+	float f = radius;
+	float n = minRadius;  // point light projection  Nearplane is now hard coded to 0.1f;
+    float linearDepth = max(abs(sampleDir.x), max(abs(sampleDir.y),abs(sampleDir.z)));
+
+	float unlinear_depth = getUnLinearDepth(linearDepth, n, f);
+
+	if(unlinear_depth - POINT_SHADOW_BIAS > cloestDepth )
+		shadow = 0.0f;
+	
+	return shadow;
+}
