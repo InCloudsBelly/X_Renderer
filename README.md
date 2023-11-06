@@ -68,7 +68,6 @@ initialize the engine yourself
 - [ ] **Optimize Compilation and Code**
 <br>
 
-If you want more information have a look into the [Documentation](https://tippesi.github.io/X-Engine-Doc/index.html).
 ## Screenshots
 ![Example scene](pic/ScreenShot.png) <br/>
 *A Renderer Demo ScreenShot* <br/>
@@ -89,11 +88,13 @@ If you want more information have a look into the [Documentation](https://tippes
 *with RTAO*
 
 ### SSS Screen Space Shadow
-![SSS Debug](pic/SSSDebug.png)
+![SSS Debug](pic/SSSDebug.png)<br/>
 *SSS Debug*
-![without SSS](pic/withoutSSS.png)
+
+![without SSS](pic/withoutSSS.png)<br/>
 *without SSS*
-![with SSS](pic/withSSS.png)
+
+![with SSS](pic/withSSS.png)<br/>
 *with SSS*
 
 ### GI Global Illumination
