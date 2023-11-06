@@ -80,11 +80,11 @@ initialize the engine yourself
 ### AO Ambient Occlusion
 ![SSAO](pic/SSAODebug.png)
 *SSAO Debug*
-![RTAO](pic/RTAODEBUG.png)
+![RTAO](pic/RTAODebug.png)
 *RTAO Debug*
-![Without RTAO](pic/WITHOUTRTAO.png)
+![Without RTAO](pic/withoutRTAO.png)
 *Without RTAO*
-![With RTAO](pic/WITHRTAO.png)
+![With RTAO](pic/withRTAO.png)
 *with RTAO*
 
 ### SSS Screen Space Shadow
@@ -100,9 +100,9 @@ initialize the engine yourself
 ### GI Global Illumination
 ![DDGI Debug](pic/ddgi_debug.png)
 *DDGI Debug*
-![without DDGI](pic/withoutDDGI.png)
+![without DDGI](pic/withoutddgi.png)
 *without DDGI*
-![with DDGI](pic/withDDGI.png)
+![with DDGI](pic/withddgi.png)
 *with DDGI*
 
 ### Reflection 
