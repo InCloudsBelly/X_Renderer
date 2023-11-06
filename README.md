@@ -1,72 +1,126 @@
-# Atlas Engine
-[![The MIT License][license-image]][license-url]
-[![Code quality][code-quality-image]][code-quality-url]
-[![Latest build](https://github.com/tippesi/Atlas-Engine/actions/workflows/build.yml/badge.svg)](https://github.com/tippesi/Atlas-Engine/actions/workflows/build.yml)
+# X Renderer
 
-[license-image]: https://img.shields.io/badge/License-MIT-yellow.svg
-[license-url]: https://opensource.org/licenses/MIT
-[code-quality-image]: https://app.codacy.com/project/badge/Grade/0b8608dc5cb349a38b8d64c7fbcbcda6
-[code-quality-url]: https://app.codacy.com/gh/tippesi/Atlas-Engine/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade
-
-![GI scene](wiki/images/intel_sponza.gif) <br/>*Realtime Sponza scene with software raytraced GI, AO and reflections (model from [Intel Graphics Research Sample Library](https://www.intel.com/content/www/us/en/developer/topic-technology/graphics-research/samples.html))* <br/>
 ## Introduction
-This is a cross platform toy engine developed in my spare time that is available on Linux, Windows and MacOS.
+This is a renderer based on Vulkan SDK. The rendering core has been well encapsulated, and based on this, many classic algorithms in computer graphics have been implemented.
 ## Requirements
 - Vulkan SDK
 - C++20 compatible compiler
 - CMake
-- Vcpkg
-## Set up
-Dependencies are managed through [vcpkg](https://github.com/microsoft/vcpkg). You can either install the packages manually 
-or while doing the build configuration with CMake. To use vcpkg together with CMake follow the steps described [here](https://github.com/microsoft/vcpkg#using-vcpkg-with-cmake).
-### Compiling the demo application
-Run CMake with the option ATLAS_DEMO=ON to include the demo application in the project. For easier use, the vsbuild.bat does exactly
-that and launches Visual Studio afterwards. After launching the IDE, set AtlasEngineDemo as your target.
->**Note:**
->In order to start the application properly you might need to change the asset directory in the [demo source file](https://github.com/tippesi/Atlas-Engine/blob/master/src/demo/App.cpp).
-### Including the library into your own project
-It is possible to compile the engine either as a shared or static library. Set the ATLAS_BUILD_SHARED option accordingly. To make
-the library work with its dependencies, the root CMakeLists.txt of this repository has to be added as a subdirectory. As an entry
-point to create an application from scratch take a look at the [Hello World tutorial](https://github.com/tippesi/Atlas-Engine/wiki/Hello-World). For reference, the source folder contains an empty [app header](https://github.com/tippesi/Atlas-Engine/blob/master/src/engine/App.h) and an empty [app source](https://github.com/tippesi/Atlas-Engine/blob/master/src/demo/App.cpp).
-<!---
-### Android
-You can compile the engine using Gradle either with or without AndroidStudio.
-The Gradle project can be found in **./platform/android**. Open it before you proceed.
-There are also two options available: Start a new project with a predefined
-main file which you can edit. The second option is two use the engine as a subproject in an already existing project. 
+## Set up & Compiling the demo application
+All dependencies have been stored in the "./libs" directory, which may result in a slightly longer cloning time when you clone the project.
 
-**Note: Right now there is a bug in the NDK that prevents a successful build. Last version which worked was NDK 18.x. NDK 22.x shouldn't have any problems. To prevent any issues, don't let Android Studio automatically upgrade the NDK or Gradle versions of the project.**
-#### New project using the engine
-You can find the main file at **./src/main.cpp**. Just start your project there, it already
-contains a main function. 
-#### Excisting project using the engine
-There exist two options:
-- You can use the engine as a Gradle subproject.
-- You can use the engine as a CMake subproject. Just copy the **./platform** folder to the folder
-of the CMake root project. In the **./platform/android/app/src/main/java/com/atlasengine/app** file add the root library name and load
-the project with Android Studio. The CMake project has to be compiled as a shared library. Make sure that the path to your data in the
-asset directory is correct.
--->
+The CMakeLists.txt file is written in a very simple manner, so you can simply run the Build.bat file to compile the project.
+```
+    git clone  
+    cd X_Renderer
+    mkdir build
+    run Build.bat
+```
+There are three main projects that need to be compiled: XEngine (the core engine of the project, primarily focused on rendering functionality), ImGuiExtension (used for basic UI rendering), and XRendererDemo (a demo program for testing the engine).
+
 ### CMake build options
-- **ATLAS_BUILD_SHARED** Force project to be build as a shared library
-- **ATLAS_EXPORT_MAIN** Export the main file to be added as executable to parent project (only if main function cannot be found)
-- **ATLAS_NO_APP** Disables the engines main function and app functionality. You have to code the main function and
+- **X_BUILD_SHARED** Force project to be build as a shared library
+- **X_EXPORT_MAIN** Export the main file to be added as executable to parent project (only if main function cannot be found)
+- **X_NO_APP** Disables the engines main function and app functionality. You have to code the main function and
 initialize the engine yourself
-- **ATLAS_IMGUI** Enables the [ImGui](https://github.com/ocornut/imgui) integration. Is enabled by default if the demo project is build.
-- **ATLAS_ASSIMP** Enables the [Assimp](https://github.com/assimp/assimp) integration. Is enabled by default.
-## Documentation
-If you want more information have a look into the [Documentation](https://tippesi.github.io/Atlas-Engine-Doc/index.html).
-## License
-The source code is licensed under the MIT license. The copyright notices of the dependencies can be found
-in the LICENSE.md file in the dependency directory. 
->**Note:**
->The files in the data folder (except the shaders) use a different license. 
-## Code Example
-For a code example have a look at the [demo application](https://github.com/tippesi/Atlas-Engine/tree/master/src/demo).
+- **X_IMGUI** Enables the [ImGui](https://github.com/ocornut/imgui) integration. Is enabled by default if the demo project is build.
+- **X_ASSIMP** Enables the [Assimp](https://github.com/assimp/assimp) integration. Is enabled by default.
+
+## Engine Features
+- [x] **Vulkan Rendering System**
+- [x] **Asset Manager**
+- [x] **Shader Compilation (now only support glsl)**
+- [x] **Input Manager (KeyBoard, Mouse, Stroll and etc.)**
+- [x] **Simple ImGui UI & UI Control**
+- [x] **Real-Time Ray Tracing Architecture**
+- [x] **Profiler**
+
+
+### TODO:
+- [ ] **Animation**
+- [ ] **Introducing new Layers & new Components to implement new features, such as Physics, Audio, ScriptSystem & etc.**
+- [ ] **Optimize Compilation and Code**
+<br>
+
+## Rendering Features:
+- [x] **Deffered Rendering Pipeline**
+- [x] **PBR(Physical Based Rendering)**
+- [x] **IBL(Image Based Lighting)**
+- [x] **Skybox Rendering**
+- [x] **Tile/Cluster Based LightCulling**
+- [x] **Volumetric Cloud (atmosphere rendering)**
+- [x] **RayMarching Volumetric**
+- [x] **Froxel Volumetric**
+- [x] **Basic Fog**
+- [x] **CSM(Cascaded Shadow Map)**
+- [x] **RTAO(Ray Tracing Ambient Occlusion)**
+- [x] **Real Time DDGI(Dynamic Diffuse Global Illumination)**
+- [x] **Ray Tracing Reflection(Dynamic Diffuse Global Illumination)**
+- [x] **SSS Screen Space Shadow**
+- [x] **TAA(Temperal Anti-Aliasing)**
+- [x] **GBuffer DownSampling**
+- [x] **Post-Processing such Sharpen Blur and etc.**
+- [ ] 
+
+### TODO:
+- [ ] **Path Tracing (not fixed yet)**
+- [ ] **Introducing new Layers & new Components to implement new features, such as Physics, Audio, ScriptSystem & etc.**
+- [ ] **Optimize Compilation and Code**
+<br>
+
+If you want more information have a look into the [Documentation](https://tippesi.github.io/X-Engine-Doc/index.html).
 ## Screenshots
-![Example scene](wiki/images/sponza_rasterized.png) <br/>
-*Rasterized image using real time global illumination* <br/>
-![Example scene](wiki/images/sponza_pathtraced.png)
-*Path traced scene*
-![Island scene](wiki/images/island.gif) <br/>
-*Island demo scene using the terrain and ocean systems* <br/>
+![Example scene](pic/ScreenShot.png) <br/>
+*A Renderer Demo ScreenShot* <br/>
+### AA Anti-Aliasing
+![without TAA](pic/withoutTAA.png)
+*without TAA*
+![with TAA](pic/withTAA.png)
+*with TAA*
+
+### AO Ambient Occlusion
+![SSAO](pic/SSAODebug.png)
+*SSAO Debug*
+![RTAO](pic/RTAODEBUG.png)
+*RTAO Debug*
+![Without RTAO](pic/WITHOUTRTAO.png)
+*Without RTAO*
+![With RTAO](pic/WITHRTAO.png)
+*with RTAO*
+
+### SSS Screen Space Shadow
+![SSS Debug](pic/SSSDebug.png)
+*SSS Debug*
+![without SSS](pic/withoutSSS.png)
+*without SSS*
+![with SSS](pic/withSSS.png)
+*with SSS*
+
+### GI Global Illumination
+![DDGI Debug](pic/ddgi_debug.png)
+*DDGI Debug*
+![without DDGI](pic/withoutDDGI.png)
+*without DDGI*
+![with DDGI](pic/withDDGI.png)
+*with DDGI*
+
+### Reflection 
+![RT Reflection Debug](pic/reflectionDebug.png)
+*RT Reflection Debug*
+![without DDGI](pic/withoutReflection.png)
+*without RT Reflection*
+![with DDGI](pic/withReflection.png)
+*with RT Reflection*
+
+### Volumetric Fog 
+![rayMarchingVolume](pic/rayMarchingVolume.png)
+*Ray Marching Volume*
+![FroxelVolume](pic/FroxelVolume.png)
+*Froxel Volume*
+![froxelSupportsPointLight](pic/froxelSupportsPointLight.png)
+*froxel Supports PointLights*
+
+### Cloud & atmosphere 
+![Cloud & atmosphere](pic/cloud_atmosphere.png)
+*Cloud & atmosphere*
+atmosphere

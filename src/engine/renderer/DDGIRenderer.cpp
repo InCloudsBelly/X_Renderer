@@ -300,9 +300,9 @@ namespace X {
             auto pipeline = PipelineManager::GetPipeline(pipelineConfig);
             commandList->BindPipeline(pipeline);
 
-            probeDebugActiveMaterial.emissiveColor = vec3(0.0f, 1.0f, 0.0f);
-            probeDebugInactiveMaterial.emissiveColor = vec3(1.0f, 0.0f, 0.0f);
-            probeDebugOffsetMaterial.emissiveColor = vec3(0.0f, 0.0f, 1.0f);
+            probeDebugActiveMaterial.emissiveColor = vec3(0.0f, 0.0f, 0.0f);
+            probeDebugInactiveMaterial.emissiveColor = vec3(0.0f, 0.0f, 0.0f);
+            probeDebugOffsetMaterial.emissiveColor = vec3(0.0f, 0.0f, 0.0f);
 
             sphereArray.Bind(commandList);
 
