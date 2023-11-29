@@ -68,6 +68,21 @@ initialize the engine yourself
 - [ ] **Optimize Compilation and Code**
 <br>
 
+## System Analysis
+This chapter is dedicated to summarizing the existing system architecture that I personally find valuable. The goal is to create diagrams for better comprehension and learning.
+
+### Material System
+![material system](pic/materialSystem.png) <br/>
+The system has designed a class called "Material," which includes shared_ptr for various textures and manual settings for material parameters. Typically, materials are associated with meshes, where a mesh can have multiple materials to describe its properties. Third-party models are loaded using assimp, loading pictures into u8 images, which are later transformed into textures required by the material. Additionally, manual settings for materials, such as debugging materials and materials for regular geometry, can be configured.
+
+During each rendering loop, all materials are traversed, and a hash table <Material, Index> is generated. All material parameters (excluding textures but including flagBits indicating which textures the material has) are then packed into a uniform buffer and sent to the GPU. During actual rendering, a MaterialIdx gBuffer is rendered to record the material index for each mesh during deferred rendering (CPU side queries the hash table mentioned earlier for PushConstant).
+
+### Hardware RayTracing System
+![hd rt system](pic/RayTracingSystem.png) <br/>
+The hardware ray tracing system mainly revolves around the RTData bit core. First of all, it should be noted that the ray tracing system cannot bind the corresponding texture resources and Vertexbuffer of the model during drawing, just like drawing each instance. Instead, it needs to consider merging the triangle information, texture information, material information, etc. required for GPU rendering, and transmitting them to GPU through a uniform buffer, On the GPU side, the compressed GPUTriangle is retrieved from the triangle index tracked through the hardware ray tracing interface. After parsing, the GPU material index can be obtained, and the GPU material will be identified through Slice to indicate the offset and size of the layer and UV of this material in TextureAtlas (as shown on the right side of the figure).
+
+How to compress and build the GPUTriangle mentioned above is shown in the upper left of the figure. At the same time, this area also explains how to build the underlying acceleration structure and the top-level acceleration structure through indexBuffer and VertexBuffer. TLAS can also be directly visualized in Nsight. Specifically, call the hardware optical tracing interface in the shader to get the index of the traced triangle in TLAS, Then, combined with the buffer of the constructed set GPUTriangle information, relevant ray tracing information is obtained.
+
 ## Screenshots
 ![Example scene](pic/ScreenShot.png) <br/>
 *A Renderer Demo ScreenShot* <br/>
